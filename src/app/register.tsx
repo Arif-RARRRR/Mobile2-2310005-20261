@@ -1,53 +1,86 @@
+import { registerApi } from "@/services/authService";
 import { authStyles } from "@/styles/authStyles";
 import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
 import { useState } from "react";
 import {
-    Alert,
-    KeyboardAvoidingView,
-    Platform,
-    ScrollView,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    View,
+  ActivityIndicator,
+  Alert,
+  KeyboardAvoidingView,
+  Platform,
+  ScrollView,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 export default function RegisterScreen() {
   const [nama, setNama] = useState("");
   const [email, setEmail] = useState("");
+  const [noHp, setNoHp] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
+  const [loading, setLoading] = useState(false);
   const [focusedField, setFocusedField] = useState<
-    "nama" | "email" | "password" | "confirm" | null
+    "nama" | "email" | "noHp" | "password" | "confirm" | null
   >(null);
 
-  const handleRegister = () => {
-    if (!nama.trim() || !email.trim() || !password.trim() || !confirmPassword.trim()) {
+  const handleRegister = async () => {
+    if (
+      !nama.trim() ||
+      !email.trim() ||
+      !noHp.trim() ||
+      !password.trim() ||
+      !confirmPassword.trim()
+    ) {
       Alert.alert("Pendaftaran Gagal", "Semua kolom formulir wajib diisi.");
       return;
     }
 
     if (password.length < 6) {
-      Alert.alert("Kata Sandi Lemah", "Kata sandi minimal terdiri dari 6 karakter.");
+      Alert.alert(
+        "Kata Sandi Lemah",
+        "Kata sandi minimal terdiri dari 6 karakter.",
+      );
       return;
     }
 
     if (password !== confirmPassword) {
-      Alert.alert("Tidak Cocok", "Konfirmasi kata sandi tidak sama dengan kata sandi.");
+      Alert.alert(
+        "Tidak Cocok",
+        "Konfirmasi kata sandi tidak sama dengan kata sandi.",
+      );
       return;
     }
 
-    // Catatan: Pada modul berikutnya, data ini akan dikirim sebagai JSON
-    // ke endpoint POST /api/register Laravel 13.
-    Alert.alert(
-      "Pendaftaran Berhasil!",
-      `Akun atas nama ${nama.trim()} siap digunakan. Silakan masuk melalui halaman Login.`,
-      [{ text: "Ke Login", onPress: () => router.back() }]
-    );
+    setLoading(true);
+    try {
+      const result = await registerApi({
+        name: nama.trim(),
+        email: email.trim(),
+        no_hp: noHp.trim(),
+        password,
+        password_confirmation: confirmPassword,
+      });
+
+      Alert.alert(
+        "Pendaftaran Berhasil!",
+        `Akun atas nama ${result.user.name} telah tersimpan ke database. Silakan masuk melalui halaman Login.`,
+        [{ text: "Ke Login", onPress: () => router.back() }],
+      );
+    } catch (error) {
+      const message =
+        error instanceof Error
+          ? error.message
+          : "Terjadi kesalahan saat mendaftarkan akun.";
+      Alert.alert("Pendaftaran Gagal", message);
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -62,7 +95,11 @@ export default function RegisterScreen() {
           showsVerticalScrollIndicator={false}
         >
           {/* Tombol Kembali Kustom */}
-          <TouchableOpacity style={authStyles.topBackButton} onPress={() => router.back()}>
+          <TouchableOpacity
+            style={authStyles.topBackButton}
+            disabled={loading}
+            onPress={() => router.back()}
+          >
             <Ionicons name="arrow-back" size={20} color="#0F172A" />
           </TouchableOpacity>
 
@@ -72,7 +109,7 @@ export default function RegisterScreen() {
             </View>
             <Text style={authStyles.title}>Buat Akun Baru</Text>
             <Text style={authStyles.subtitle}>
-              Lengkapi data diri Anda untuk mendaftarkan akun baru
+              Lengkapi data diri Anda untuk mendaftarkan akun ke server
             </Text>
           </View>
 
@@ -96,6 +133,7 @@ export default function RegisterScreen() {
                   style={authStyles.input}
                   placeholder="Contoh: Muhammad Rizki"
                   placeholderTextColor="#94A3B8"
+                  editable={!loading}
                   value={nama}
                   onChangeText={setNama}
                   onFocus={() => setFocusedField("nama")}
@@ -125,9 +163,39 @@ export default function RegisterScreen() {
                   placeholderTextColor="#94A3B8"
                   keyboardType="email-address"
                   autoCapitalize="none"
+                  editable={!loading}
                   value={email}
                   onChangeText={setEmail}
                   onFocus={() => setFocusedField("email")}
+                  onBlur={() => setFocusedField(null)}
+                />
+              </View>
+            </View>
+
+            {/* Nomor HP (BARU) */}
+            <View style={authStyles.formGroup}>
+              <Text style={authStyles.label}>Nomor HP / WhatsApp</Text>
+              <View
+                style={[
+                  authStyles.inputWrapper,
+                  focusedField === "noHp" && authStyles.inputWrapperFocused,
+                ]}
+              >
+                <Ionicons
+                  name="call-outline"
+                  size={20}
+                  color={focusedField === "noHp" ? "#2563EB" : "#64748B"}
+                  style={authStyles.inputIcon}
+                />
+                <TextInput
+                  style={authStyles.input}
+                  placeholder="Contoh: 081234567890"
+                  placeholderTextColor="#94A3B8"
+                  keyboardType="phone-pad"
+                  editable={!loading}
+                  value={noHp}
+                  onChangeText={setNoHp}
+                  onFocus={() => setFocusedField("noHp")}
                   onBlur={() => setFocusedField(null)}
                 />
               </View>
@@ -154,6 +222,7 @@ export default function RegisterScreen() {
                   placeholderTextColor="#94A3B8"
                   secureTextEntry={!showPassword}
                   autoCapitalize="none"
+                  editable={!loading}
                   value={password}
                   onChangeText={setPassword}
                   onFocus={() => setFocusedField("password")}
@@ -170,7 +239,9 @@ export default function RegisterScreen() {
                   />
                 </TouchableOpacity>
               </View>
-              <Text style={authStyles.helperText}>Gunakan kombinasi huruf dan angka.</Text>
+              <Text style={authStyles.helperText}>
+                Gunakan kombinasi huruf dan angka.
+              </Text>
             </View>
 
             {/* Konfirmasi Password */}
@@ -194,6 +265,7 @@ export default function RegisterScreen() {
                   placeholderTextColor="#94A3B8"
                   secureTextEntry={!showConfirm}
                   autoCapitalize="none"
+                  editable={!loading}
                   value={confirmPassword}
                   onChangeText={setConfirmPassword}
                   onFocus={() => setFocusedField("confirm")}
@@ -213,17 +285,30 @@ export default function RegisterScreen() {
             </View>
 
             <TouchableOpacity
-              style={authStyles.primaryButton}
+              style={[
+                authStyles.primaryButton,
+                loading && authStyles.primaryButtonDisabled,
+              ]}
               activeOpacity={0.85}
+              disabled={loading}
               onPress={handleRegister}
             >
-              <Text style={authStyles.primaryButtonText}>Daftar Akun</Text>
-              <Ionicons name="checkmark" size={19} color="#FFFFFF" />
+              {loading ? (
+                <ActivityIndicator color="#FFFFFF" />
+              ) : (
+                <>
+                  <Text style={authStyles.primaryButtonText}>Daftar Akun</Text>
+                  <Ionicons name="checkmark" size={19} color="#FFFFFF" />
+                </>
+              )}
             </TouchableOpacity>
 
             <View style={[authStyles.footerRow, { marginTop: 18 }]}>
               <Text style={authStyles.footerText}>Sudah memiliki akun?</Text>
-              <TouchableOpacity onPress={() => router.back()}>
+              <TouchableOpacity
+                disabled={loading}
+                onPress={() => router.back()}
+              >
                 <Text style={authStyles.footerLink}>Masuk di sini</Text>
               </TouchableOpacity>
             </View>

@@ -127,6 +127,9 @@ export const authStyles = StyleSheet.create({
     shadowRadius: 12,
     elevation: 4,
   },
+  primaryButtonDisabled: {
+  opacity: 0.65,
+},
   primaryButtonText: {
     color: "#FFFFFF",
     fontSize: 15,

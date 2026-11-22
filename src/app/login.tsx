@@ -1,37 +1,58 @@
+import { useAuth } from "@/context/AuthContext";
+import { loginApi } from "@/services/authService";
 import { authStyles } from "@/styles/authStyles";
 import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
 import { useState } from "react";
 import {
-    Alert,
-    KeyboardAvoidingView,
-    Platform,
-    ScrollView,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    View,
+  ActivityIndicator,
+  Alert,
+  KeyboardAvoidingView,
+  Platform,
+  ScrollView,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 export default function LoginScreen() {
+  const { setSession } = useAuth();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
-  const [focusedField, setFocusedField] = useState<"email" | "password" | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [focusedField, setFocusedField] = useState<"email" | "password" | null>(
+    null,
+  );
 
-  const handleLogin = () => {
+  const handleLogin = async () => {
     if (!email.trim() || !password.trim()) {
-      Alert.alert("Input Belum Lengkap", "Silakan masukkan email dan password Anda.");
+      Alert.alert(
+        "Input Belum Lengkap",
+        "Silakan masukkan email dan password Anda.",
+      );
       return;
     }
 
-    // Catatan: Pada modul berikutnya, bagian ini akan dihubungkan
-    // ke Fetch API endpoint POST /api/login pada server Laravel 13.
-    router.replace({
-      pathname: "/home",
-      params: { email: email.trim() },
-    });
+    setLoading(true);
+    try {
+      const result = await loginApi({
+        email: email.trim(),
+        password,
+      });
+      setSession(result.user, result.token);
+      router.replace("/home");
+    } catch (error) {
+      const message =
+        error instanceof Error
+          ? error.message
+          : "Terjadi kesalahan saat masuk ke akun.";
+      Alert.alert("Login Gagal", message);
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -78,6 +99,7 @@ export default function LoginScreen() {
                   placeholderTextColor="#94A3B8"
                   keyboardType="email-address"
                   autoCapitalize="none"
+                  editable={!loading}
                   value={email}
                   onChangeText={setEmail}
                   onFocus={() => setFocusedField("email")}
@@ -106,6 +128,7 @@ export default function LoginScreen() {
                   placeholderTextColor="#94A3B8"
                   secureTextEntry={!showPassword}
                   autoCapitalize="none"
+                  editable={!loading}
                   value={password}
                   onChangeText={setPassword}
                   onFocus={() => setFocusedField("password")}
@@ -125,12 +148,24 @@ export default function LoginScreen() {
             </View>
 
             <TouchableOpacity
-              style={authStyles.primaryButton}
+              style={[
+                authStyles.primaryButton,
+                loading && authStyles.primaryButtonDisabled,
+              ]}
               activeOpacity={0.85}
+              disabled={loading}
               onPress={handleLogin}
             >
-              <Text style={authStyles.primaryButtonText}>Masuk Sekarang</Text>
-              <Ionicons name="arrow-forward" size={18} color="#FFFFFF" />
+              {loading ? (
+                <ActivityIndicator color="#FFFFFF" />
+              ) : (
+                <>
+                  <Text style={authStyles.primaryButtonText}>
+                    Masuk Sekarang
+                  </Text>
+                  <Ionicons name="arrow-forward" size={18} color="#FFFFFF" />
+                </>
+              )}
             </TouchableOpacity>
 
             <View style={authStyles.dividerRow}>
@@ -141,7 +176,10 @@ export default function LoginScreen() {
 
             <View style={authStyles.footerRow}>
               <Text style={authStyles.footerText}>Belum punya akun?</Text>
-              <TouchableOpacity onPress={() => router.push("/register")}>
+              <TouchableOpacity
+                disabled={loading}
+                onPress={() => router.push("/register")}
+              >
                 <Text style={authStyles.footerLink}>Daftar Sekarang</Text>
               </TouchableOpacity>
             </View>
