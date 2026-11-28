@@ -1,10 +1,17 @@
 import { UserData } from "@/services/authService";
-import { createContext, ReactNode, useContext, useState } from "react";
+import {
+  createContext,
+  ReactNode,
+  useCallback,
+  useContext,
+  useState,
+} from "react";
 
 interface AuthContextValue {
   user: UserData | null;
   token: string | null;
   setSession: (user: UserData, token: string) => void;
+  updateUser: (user: UserData) => void;
   clearSession: () => void;
 }
 
@@ -19,13 +26,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setToken(authToken);
   };
 
+  // Perbarui data user (nama, email, foto) tanpa menyentuh token
+  const updateUser = useCallback((userData: UserData) => {
+    setUser(userData);
+  }, []);
+
   const clearSession = () => {
     setUser(null);
     setToken(null);
   };
 
   return (
-    <AuthContext.Provider value={{ user, token, setSession, clearSession }}>
+    <AuthContext.Provider
+      value={{ user, token, setSession, updateUser, clearSession }}
+    >
       {children}
     </AuthContext.Provider>
   );
