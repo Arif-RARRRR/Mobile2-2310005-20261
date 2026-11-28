@@ -1,4 +1,6 @@
 import { API_ENDPOINTS } from "@/config/api";
+import { File } from "expo-file-system";
+import { Platform } from "react-native";
 
 export interface UserData {
   id: number;
@@ -26,6 +28,36 @@ export interface RegisterPayload {
   no_hp: string;
   password: string;
   password_confirmation: string;
+}
+
+export interface UpdateProfilePayload {
+  name: string;
+  email: string;
+  no_hp: string;
+}
+
+export interface UpdatePasswordPayload {
+  current_password: string;
+  password: string;
+  password_confirmation: string;
+}
+
+export interface ProfileResponse {
+  success: boolean;
+  message?: string;
+  user: UserData;
+  foto_url?: string;
+}
+
+export interface BasicMessageResponse {
+  success: boolean;
+  message: string;
+}
+
+export interface PhotoUploadAsset {
+  uri: string;
+  fileName?: string | null;
+  mimeType?: string | null;
 }
 
 // Helper agar error dari Laravel (422, 401, dll.) seragam
@@ -108,5 +140,124 @@ export async function logoutApi(token: string): Promise<void> {
     });
   } catch {
     // Jika jaringan putus saat logout, sesi lokal tetap dibersihkan
+  }
+}
+
+// 4. Ambil profil terbaru dari server Laravel
+export async function fetchProfileApi(token: string): Promise<ProfileResponse> {
+  try {
+    const response = await fetch(API_ENDPOINTS.PROFILE, {
+      method: "GET",
+      headers: {
+        Accept: "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+    });
+    return await handleApiResponse<ProfileResponse>(response);
+  } catch (error) {
+    if (error instanceof TypeError) {
+      throw new Error(
+        "Tidak dapat terhubung ke server Laravel. Periksa koneksi Wi-Fi Anda.",
+      );
+    }
+    throw error;
+  }
+}
+
+// 5. Perbarui nama, email, dan nomor HP
+export async function updateProfileApi(
+  token: string,
+  payload: UpdateProfilePayload,
+): Promise<ProfileResponse> {
+  try {
+    const response = await fetch(API_ENDPOINTS.UPDATE_PROFILE, {
+      method: "PUT",
+      headers: {
+        Accept: "application/json",
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify(payload),
+    });
+    return await handleApiResponse<ProfileResponse>(response);
+  } catch (error) {
+    if (error instanceof TypeError) {
+      throw new Error(
+        "Gagal menghubungi server saat menyimpan profil. Cek koneksi Wi-Fi.",
+      );
+    }
+    throw error;
+  }
+}
+
+// 6. Ganti kata sandi
+export async function updatePasswordApi(
+  token: string,
+  payload: UpdatePasswordPayload,
+): Promise<BasicMessageResponse> {
+  try {
+    const response = await fetch(API_ENDPOINTS.UPDATE_PASSWORD, {
+      method: "PUT",
+      headers: {
+        Accept: "application/json",
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify(payload),
+    });
+    return await handleApiResponse<BasicMessageResponse>(response);
+  } catch (error) {
+    if (error instanceof TypeError) {
+      throw new Error(
+        "Gagal menghubungi server saat mengganti kata sandi. Cek koneksi Wi-Fi.",
+      );
+    }
+    throw error;
+  }
+}
+
+// 7. Upload foto profil (FormData multipart)
+export async function uploadProfilePhotoApi(
+  token: string,
+  asset: PhotoUploadAsset,
+): Promise<ProfileResponse> {
+  try {
+    const formData = new FormData();
+
+    if (Platform.OS === "web") {
+      const fallbackExt =
+        asset.mimeType === "image/png"
+          ? "png"
+          : asset.mimeType === "image/webp"
+            ? "webp"
+            : "jpg";
+      const fileName = asset.fileName || `profile_${Date.now()}.${fallbackExt}`;
+      const blobResponse = await fetch(asset.uri);
+      const blob = await blobResponse.blob();
+      formData.append("foto", blob, fileName);
+    } else {
+      // Di HP: objek File dari expo-file-system (membaca nama, MIME, dan isi file)
+      const file = new File(asset.uri);
+      formData.append("foto", file as unknown as Blob);
+    }
+
+    // Jangan menulis header "Content-Type" manual untuk FormData,
+    // karena fetch() membuat boundary multipart yang benar secara otomatis.
+    const response = await fetch(API_ENDPOINTS.UPDATE_PHOTO, {
+      method: "POST",
+      headers: {
+        Accept: "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+      body: formData,
+    });
+    return await handleApiResponse<ProfileResponse>(response);
+  } catch (error) {
+    if (error instanceof TypeError) {
+      throw new Error(
+        "Gagal mengunggah foto ke server. Pastikan server menyala (--host=0.0.0.0).",
+      );
+    }
+    throw error;
   }
 }
